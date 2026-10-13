@@ -1,26 +1,152 @@
 @import "tailwindcss";
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-plex-sans), var(--font-noto-sc), "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", monospace;
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-rail: var(--rail);
+  --color-surface: var(--surface);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* 圆角：列与卡片 10px（rounded-lg），控件 8px（rounded-md） */
+:root {
+  --radius: 10px;
+  --background: #f6f4ef;
+  --foreground: #1c1915;
+  --rail: #efeae2;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --card-foreground: #1c1915;
+  --popover: #ffffff;
+  --popover-foreground: #1c1915;
+  --primary: #1c1915;
+  --primary-foreground: #f6f4ef;
+  --secondary: #efeae2;
+  --secondary-foreground: #1c1915;
+  --muted: #f1ede6;
+  --muted-foreground: #6b645b;
+  --accent: #ece7de;
+  --accent-foreground: #1c1915;
+  --destructive: #9b2c2c;
+  --border: #e6e1d8;
+  --input: #ddd7cc;
+  --ring: #6b645b;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+  button,
+  a,
+  input,
+  textarea {
+    transition-duration: 150ms;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.md-body {
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.md-body > * + * {
+  margin-top: 0.6em;
+}
+.md-body h1,
+.md-body h2,
+.md-body h3,
+.md-body h4 {
+  font-weight: 600;
+  line-height: 1.35;
+  margin-top: 0.9em;
+}
+.md-body h1 {
+  font-size: 1.15em;
+}
+.md-body h2 {
+  font-size: 1.08em;
+}
+.md-body h3,
+.md-body h4 {
+  font-size: 1em;
+}
+.md-body ul {
+  list-style: disc;
+  padding-left: 1.3em;
+}
+.md-body ol {
+  list-style: decimal;
+  padding-left: 1.4em;
+}
+.md-body li + li {
+  margin-top: 0.2em;
+}
+.md-body a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.md-body blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 0.8em;
+  color: var(--muted-foreground);
+}
+.md-body :not(pre) > code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--muted);
+  border-radius: 4px;
+  padding: 0.1em 0.3em;
+}
+.md-body pre {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: #f4f1eb;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.7em 0.8em;
+  overflow-x: auto;
+}
+.md-body table {
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+}
+.md-body th,
+.md-body td {
+  border: 1px solid var(--border);
+  padding: 0.3em 0.6em;
+  text-align: left;
+}
+.md-body hr {
+  border-color: var(--border);
 }

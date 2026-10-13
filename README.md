@@ -1,36 +1,30 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 五席
 
-## Getting Started
+产品规范见 [SPEC.md](./SPEC.md)。
 
-First, run the development server:
+五席是一个单页工作台：配置最多五个模型席位，用同一个输入框提问，五个模型同时作答，并排看差异。密钥、席位配置和对话记录都只存在这台浏览器里，服务端只转发请求。
+
+## 运行
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+开发服务器监听 [http://localhost:3847](http://localhost:3847)。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+没有密钥时，点「使用演示回答」即可走通界面，不会访问网络。席位设置里也可以开关演示。
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+密钥只保存在本机 `localStorage`（`wuxi.secrets.v1`），界面只显示末四位。不要把密钥写进仓库或环境变量。不需要 `.env` 也能跑。
 
-## Learn More
+可选环境变量：
 
-To learn more about Next.js, take a look at the following resources:
+| 变量 | 默认 | 作用 |
+| --- | --- | --- |
+| `PROXY_TIMEOUT_MS` | `90000` | 上游无活动超时（毫秒） |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm test
+npm run lint
+npm run build
+```
