@@ -66,6 +66,13 @@ export function defaultDisplayName(id: SlotId): string {
   return `席位 ${slotNumber(id)}`;
 }
 
+/** 窄屏切换条：未配密钥时显示模型1–5；配好密钥且已有模型 ID 时显示当前模型名。 */
+export function slotTabLabel(slot: SlotConfig, hasKey: boolean): string {
+  const model = slot.model.trim();
+  if (hasKey && model) return model;
+  return `模型${slotNumber(slot.id)}`;
+}
+
 export function defaultSlot(id: SlotId): SlotConfig {
   const preset = getPreset(DEFAULT_SLOT_PRESETS[id])!;
   return {

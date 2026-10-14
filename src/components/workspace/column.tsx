@@ -1,25 +1,36 @@
 "use client";
 
-import { ArrowDownIcon, MoreHorizontalIcon, PencilIcon } from "lucide-react";
+import {
+  ArrowDownIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  CopyIcon,
+  HeartIcon,
+  HeartOffIcon,
+  MoreHorizontalIcon,
+  PencilIcon,
+  RefreshCwIcon,
+  SquareIcon,
+} from "lucide-react";
 import { memo, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { isActive } from "@/lib/context";
 import { turnErrorText, turnMetrics, firstTokenMs, totalMs } from "@/lib/format";
-import { SLOT_COLORS } from "@/lib/presets";
+import { SLOT_COLORS, slotNumber } from "@/lib/presets";
 import type { Round, SlotConfig, SlotId, SlotTurn } from "@/lib/types";
 import { LIMITS } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Markdown } from "./markdown";
+import { HeaderModelPicker } from "./model-picker";
 import { useWorkspace } from "./provider";
-import { STATUS_LABEL, lastContentOf, latestTurn, turnsOf, useWorkspaceUi } from "./ui-state";
+import { lastContentOf, latestTurn, turnsOf, useWorkspaceUi } from "./ui-state";
 
 export function SlotDot({ slotId, className }: { slotId: SlotId; className?: string }) {
   return (
@@ -31,14 +42,15 @@ export function SlotDot({ slotId, className }: { slotId: SlotId; className?: str
   );
 }
 
-/** 列头：色点、显示名、模型 ID、状态、菜单。 */
+/** 列头：色点、当前模型、刷新 / 复制 / 菜单。 */
 export function ColumnHeader({ slot, className }: { slot: SlotConfig; className?: string }) {
   const { current, stopSlot, regenerate, updateSlot } = useWorkspace();
+  const { openSettings } = useWorkspaceUi();
   const lastRound = current?.rounds.at(-1);
   const latest = latestTurn(lastRound, slot.id);
   const active = !!latest && isActive(latest);
-  const status = !slot.enabled ? "已停用" : latest ? STATUS_LABEL[latest.status] : undefined;
   const canRegen = !!latest && !active;
+  const title = `模型${slotNumber(slot.id)}`;
 
   const copyLast = async () => {
     const text = lastContentOf(current, slot.id);
@@ -49,57 +61,60 @@ export function ColumnHeader({ slot, className }: { slot: SlotConfig; className?
   };
 
   return (
-    <div
-      className={cn("border-t-[3px] bg-white px-3 py-2", className)}
-      style={{ borderTopColor: SLOT_COLORS[slot.id] }}
-    >
-      <div className="flex min-w-0 items-center gap-2">
+    <div className={cn("bg-white px-3 py-1.5", className)}>
+      <div className="flex min-w-0 items-center gap-1.5">
         <SlotDot slotId={slot.id} />
-        <span className="shrink-0 truncate text-sm font-medium">{slot.displayName}</span>
-        <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground" title={slot.model}>
-          {slot.model || "未填写模型"}
-        </span>
-        {status && (
-          <span
-            className={cn(
-              "shrink-0 text-xs",
-              latest?.status === "error" ? "text-destructive" : "text-muted-foreground",
-            )}
+        <HeaderModelPicker slot={slot} />
+        <div className="ml-auto flex shrink-0 items-center">
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label={active ? "停止此席" : "重新生成"}
+            disabled={!active && !canRegen}
+            onClick={() => (active ? stopSlot(slot.id) : regenerate(slot.id))}
           >
-            {status}
-          </span>
-        )}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-xs" aria-label={`${slot.displayName} 菜单`}>
-              <MoreHorizontalIcon />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {active ? (
-              <DropdownMenuItem onSelect={() => stopSlot(slot.id)}>停止此席</DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem disabled={!canRegen} onSelect={() => regenerate(slot.id)}>
-                重新生成
+            {active ? <SquareIcon /> : <RefreshCwIcon />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label="复制此席最后一条"
+            disabled={!lastContentOf(current, slot.id)}
+            onClick={copyLast}
+          >
+            <CopyIcon />
+          </Button>
+          <Button variant="ghost" size="xs" className="text-muted-foreground" onClick={() => openSettings(slot.id)}>
+            编辑
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-xs" aria-label={`${title} 菜单`}>
+                <MoreHorizontalIcon />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => updateSlot(slot.id, { enabled: !slot.enabled })}>
+                {slot.enabled ? "停用此席" : "启用此席"}
               </DropdownMenuItem>
-            )}
-            <DropdownMenuItem disabled={!lastContentOf(current, slot.id)} onSelect={copyLast}>
-              复制此席最后一条
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => updateSlot(slot.id, { enabled: !slot.enabled })}>
-              {slot.enabled ? "停用此席" : "启用此席"}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
-      {!slot.enabled && <p className="mt-1 text-xs text-muted-foreground">此席已停用</p>}
     </div>
   );
 }
 
 /** 用户消息：每列显示同一份，任意一列里编辑效果相同。 */
-export function UserBubble({ round, roundIndex }: { round: Round; roundIndex: number }) {
+export function UserBubble({
+  round,
+  roundIndex,
+  compact,
+}: {
+  round: Round;
+  roundIndex: number;
+  compact?: boolean;
+}) {
   const { editRound } = useWorkspace();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(round.userText);
@@ -141,22 +156,44 @@ export function UserBubble({ round, roundIndex }: { round: Round; roundIndex: nu
   }
 
   return (
-    <div className="group/user flex justify-end gap-1">
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        aria-label="编辑这条消息"
-        className="mt-1 opacity-0 transition-opacity group-hover/user:opacity-100 focus-visible:opacity-100"
-        onClick={() => {
-          setDraft(round.userText);
-          setEditing(true);
-        }}
-      >
-        <PencilIcon />
-      </Button>
-      <div className="max-w-[92%] rounded-lg bg-[#f1ede6] px-3 py-2 text-sm whitespace-pre-wrap break-words">
-        {round.userText}
-      </div>
+    <div className={cn("group/user flex gap-1", compact ? "items-start" : "justify-end")}>
+      {!compact && (
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          aria-label="编辑这条消息"
+          className="mt-1 opacity-0 transition-opacity group-hover/user:opacity-100 focus-visible:opacity-100"
+          onClick={() => {
+            setDraft(round.userText);
+            setEditing(true);
+          }}
+        >
+          <PencilIcon />
+        </Button>
+      )}
+      {compact ? (
+        <p className="min-w-0 flex-1 text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap break-words">
+          {round.userText}
+        </p>
+      ) : (
+        <div className="max-w-[92%] rounded-lg bg-[#f1ede6] px-3 py-2 text-sm whitespace-pre-wrap break-words">
+          {round.userText}
+        </div>
+      )}
+      {compact && (
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          aria-label="编辑这条消息"
+          className="opacity-0 transition-opacity group-hover/user:opacity-100 focus-visible:opacity-100"
+          onClick={() => {
+            setDraft(round.userText);
+            setEditing(true);
+          }}
+        >
+          <PencilIcon />
+        </Button>
+      )}
     </div>
   );
 }
@@ -166,10 +203,12 @@ export const TurnBubble = memo(function TurnBubble({
   turn,
   retryable,
   showPass,
+  hideMetrics,
 }: {
   turn: SlotTurn;
   retryable: boolean;
   showPass: boolean;
+  hideMetrics?: boolean;
 }) {
   const { regenerate } = useWorkspace();
   const { openSettings } = useWorkspaceUi();
@@ -209,7 +248,9 @@ export const TurnBubble = memo(function TurnBubble({
           </div>
         </div>
       )}
-      {turn.status === "done" && metrics && <p className="font-mono text-xs text-muted-foreground">{metrics}</p>}
+      {turn.status === "done" && metrics && !hideMetrics && (
+        <p className="font-mono text-xs text-muted-foreground">{metrics}</p>
+      )}
     </div>
   );
 });
@@ -277,6 +318,87 @@ export function VoteButton({ round, slotId }: { round: Round; slotId: SlotId }) 
   );
 }
 
+function VotePill({
+  active,
+  onClick,
+  children,
+}: {
+  active?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      aria-pressed={active}
+      className={cn(
+        "h-9 min-w-[5.5rem] rounded-lg border-[#ece8e0] bg-[#faf9f6] px-4 text-xs font-normal text-[#3f3a34] shadow-none hover:bg-white",
+        active && "border-foreground/25 bg-white font-medium",
+      )}
+      onClick={onClick}
+    >
+      {children}
+    </Button>
+  );
+}
+
+/** 对照投票条：两席时用 A更好 / 都好 / 都不好 / B更好。 */
+export function CompareVoteBar() {
+  const { current, state, busy, toggleWinner } = useWorkspace();
+  const round = current?.rounds.at(-1);
+  if (!round || busy) return null;
+  const slots = state.settings.slots.filter((s) => s.enabled);
+  const ready = slots.filter((s) => latestTurn(round, s.id)?.status === "done");
+  if (ready.length < 2) return null;
+
+  const bothNeither = (
+    <>
+      <VotePill active={round.vote === "both"} onClick={() => toggleWinner(round.id, "both")}>
+        <HeartIcon className="size-3" />
+        都好
+      </VotePill>
+      <VotePill active={round.vote === "neither"} onClick={() => toggleWinner(round.id, "neither")}>
+        <HeartOffIcon className="size-3" />
+        都不好
+      </VotePill>
+    </>
+  );
+
+  if (slots.length === 2) {
+    const [a, b] = slots;
+    return (
+      <div className="flex flex-wrap justify-center gap-2" aria-label="比较这两则回答">
+        <VotePill active={round.winnerSlotId === a.id} onClick={() => toggleWinner(round.id, a.id)}>
+          <ArrowLeftIcon className="size-3" />
+          A更好
+        </VotePill>
+        {bothNeither}
+        <VotePill active={round.winnerSlotId === b.id} onClick={() => toggleWinner(round.id, b.id)}>
+          B更好
+          <ArrowRightIcon className="size-3" />
+        </VotePill>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap justify-center gap-2" aria-label="选出更好的回答">
+      {slots.map((s, i) => (
+        <VotePill
+          key={s.id}
+          active={round.winnerSlotId === s.id}
+          onClick={() => toggleWinner(round.id, s.id)}
+        >
+          {String.fromCharCode(65 + i)}更好
+        </VotePill>
+      ))}
+      {bothNeither}
+    </div>
+  );
+}
+
 const sec = (ms: number | undefined) => (ms === undefined ? "—" : `${(ms / 1000).toFixed(1)}s`);
 
 export function RoundTiming({ round, slotId }: { round: Round; slotId: SlotId }) {
@@ -289,27 +411,68 @@ export function RoundTiming({ round, slotId }: { round: Round; slotId: SlotId })
   );
 }
 
-/** 窄屏单列：列头 + 该席的全部轮次。 */
-export function SlotColumn({ slot, className }: { slot: SlotConfig; className?: string }) {
+/** 单列卡片：列头 + 该席的全部轮次。 */
+export function SlotColumn({
+  slot,
+  className,
+  hideVote,
+  canvas,
+}: {
+  slot: SlotConfig;
+  className?: string;
+  hideVote?: boolean;
+  canvas?: boolean;
+}) {
   const { current } = useWorkspace();
   const rounds = current?.rounds ?? [];
   return (
     <section
-      aria-label={slot.displayName}
-      className={cn("flex min-h-0 flex-col overflow-hidden rounded-lg border bg-white", className)}
+      aria-label={`模型${slotNumber(slot.id)}`}
+      className={cn(
+        "flex min-h-0 flex-col overflow-hidden rounded-2xl border border-[#e8e4dc] bg-white shadow-[0_8px_24px_rgba(28,25,21,0.04)]",
+        className,
+      )}
     >
-      <ColumnHeader slot={slot} className="border-b" />
-      <div className={cn("min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3", !slot.enabled && "opacity-60")}>
-        {rounds.length === 0 && <SlotEmpty slot={slot} />}
-        {rounds.map((round, i) => (
-          <div key={round.id} className="space-y-2 border-b border-dashed pb-3 last:border-b-0">
-            <SlotCell slot={slot} round={round} roundIndex={i} isLastRound={i === rounds.length - 1} />
-            <div className="flex items-center justify-between gap-2">
-              <RoundTiming round={round} slotId={slot.id} />
-              <VoteButton round={round} slotId={slot.id} />
+      <ColumnHeader slot={slot} />
+      <div
+        className={cn(
+          "m-2 mt-0 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-[#f4f2ee]",
+          !slot.enabled && "opacity-60",
+        )}
+      >
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
+          {rounds.length === 0 && <SlotEmpty slot={slot} />}
+          {rounds.map((round, i) => (
+            <div key={round.id} className="space-y-2 border-b border-dashed border-[#e4dfd6] pb-3 last:border-b-0">
+              {canvas ? (
+                <>
+                  <UserBubble round={round} roundIndex={i} compact />
+                  {turnsOf(round, slot.id).length === 0 ? (
+                    <p className="text-xs text-muted-foreground">本轮未参与</p>
+                  ) : (
+                    turnsOf(round, slot.id).map((t, ti) => (
+                      <TurnBubble
+                        key={t.id}
+                        turn={t}
+                        hideMetrics
+                        showPass={round.mode === "roundtable" && t.pass > 0}
+                        retryable={i === rounds.length - 1 && ti === turnsOf(round, slot.id).length - 1 && !isActive(t)}
+                      />
+                    ))
+                  )}
+                </>
+              ) : (
+                <SlotCell slot={slot} round={round} roundIndex={i} isLastRound={i === rounds.length - 1} />
+              )}
+              {!canvas && (
+                <div className="flex items-center justify-between gap-2">
+                  <RoundTiming round={round} slotId={slot.id} />
+                  {!hideVote && <VoteButton round={round} slotId={slot.id} />}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -367,76 +530,32 @@ export function FollowScroller({
   );
 }
 
-/** 宽屏与中屏的分栏：五列共用一个滚动容器，每轮一行，行尾一条跨五列的细栏。 */
+/** 宽屏与中屏：独立对照卡片并排，版式贴近两卡对照页。 */
 export function ColumnsGrid() {
-  const { state, current } = useWorkspace();
-  const slots = state.settings.slots;
-  const rounds = current?.rounds ?? [];
-  const bodyRows = rounds.length === 0 ? 1 : rounds.length * 2;
+  const { state } = useWorkspace();
+  const slots = state.settings.slots.filter((s) => s.enabled);
+  const pair = slots.length <= 2;
+  if (slots.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center px-6 text-sm text-muted-foreground">
+        至少启用一个席位才能对照。
+      </div>
+    );
+  }
 
   return (
-    <div className="relative h-full pt-3">
-      <FollowScroller
-        dep={current}
-        className="h-full snap-x snap-mandatory scroll-px-3 overflow-auto px-3 pb-3 min-[1200px]:snap-none"
-      >
-        <div
-          className="grid min-h-full grid-cols-[repeat(5,minmax(280px,1fr))] gap-x-2 min-[1200px]:grid-cols-[repeat(5,minmax(0,1fr))]"
-          style={{ gridTemplateRows: `auto repeat(${bodyRows}, auto) 1fr` }}
-        >
-          {slots.map((slot) => (
-            <ColumnHeader key={slot.id} slot={slot} className="sticky top-0 z-10 snap-start rounded-t-lg border" />
-          ))}
-
-          {rounds.length === 0 &&
-            slots.map((slot) => (
-              <div key={slot.id} className="border-x bg-white px-3 py-3">
-                <SlotEmpty slot={slot} />
-              </div>
-            ))}
-
-          {rounds.map((round, i) => (
-            <RoundRow key={round.id} round={round} roundIndex={i} isLastRound={i === rounds.length - 1} slots={slots} />
-          ))}
-
-          {slots.map((slot) => (
-            <div key={slot.id} className="rounded-b-lg border-x border-b bg-white" />
-          ))}
-        </div>
-      </FollowScroller>
-    </div>
-  );
-}
-
-function RoundRow({
-  round,
-  roundIndex,
-  isLastRound,
-  slots,
-}: {
-  round: Round;
-  roundIndex: number;
-  isLastRound: boolean;
-  slots: SlotConfig[];
-}) {
-  return (
-    <>
-      {slots.map((slot) => (
-        <div key={slot.id} className={cn("border-x bg-white px-3 pt-3 pb-4", !slot.enabled && "opacity-60")}>
-          <SlotCell slot={slot} round={round} roundIndex={roundIndex} isLastRound={isLastRound} />
-        </div>
-      ))}
-      <div className="col-span-5 grid grid-cols-subgrid" aria-label={`第 ${roundIndex + 1} 轮对照`}>
+    <div className="flex h-full items-stretch justify-center overflow-x-auto overflow-y-hidden px-5 py-4">
+      <div className={cn("flex h-full w-full gap-4", pair ? "max-w-[1100px] justify-center" : "")}>
         {slots.map((slot) => (
-          <div
+          <SlotColumn
             key={slot.id}
-            className="flex min-h-9 flex-wrap items-center justify-between gap-1 border-x border-y bg-[#faf8f4] px-3 py-1"
-          >
-            <RoundTiming round={round} slotId={slot.id} />
-            <VoteButton round={round} slotId={slot.id} />
-          </div>
+            slot={slot}
+            hideVote
+            canvas
+            className={cn("min-w-[220px] flex-1", pair && "max-w-[520px]")}
+          />
         ))}
       </div>
-    </>
+    </div>
   );
 }

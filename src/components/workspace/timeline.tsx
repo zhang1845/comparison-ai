@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { isActive } from "@/lib/context";
 import { MODE_LABEL, formatClock } from "@/lib/format";
-import { SLOT_COLORS } from "@/lib/presets";
+import { SLOT_COLORS, slotTabLabel } from "@/lib/presets";
 import type { Round, SlotTurn } from "@/lib/types";
 import { SLOT_IDS } from "@/lib/types";
 import { FollowScroller, RoundTiming, SlotDot, SlotEmpty, TurnBubble, UserBubble, VoteButton } from "./column";
@@ -100,8 +100,12 @@ export function Timeline() {
                   className="flex items-center gap-3 rounded-lg border border-l-[3px] bg-white px-3 py-2.5"
                   style={{ borderLeftColor: SLOT_COLORS[slot.id] }}
                 >
-                  <span className="text-sm font-medium">{slot.displayName}</span>
-                  <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">{slot.model}</span>
+                  <span className="text-sm font-medium">
+                    {slotTabLabel(slot, Boolean(state.secrets.keys[slot.id]))}
+                  </span>
+                  {!(state.secrets.keys[slot.id] && slot.model.trim()) && (
+                    <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">{slot.model}</span>
+                  )}
                   <SlotEmpty slot={slot} />
                 </div>
               ))}

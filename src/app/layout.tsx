@@ -22,7 +22,7 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "五席",
+  title: "多模型工作台",
   description: "一条问题，五个模型并排作答。",
 };
 

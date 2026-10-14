@@ -29,10 +29,12 @@ import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { KIND_LABELS, PRESETS, PRESET_GROUPS, applyPreset, defaultDisplayName, getPreset } from "@/lib/presets";
+import { KIND_LABELS, PRESETS, PRESET_GROUPS, applyPreset, defaultDisplayName, getPreset, slotTabLabel } from "@/lib/presets";
 import type { ProviderKind, SlotConfig, SlotId } from "@/lib/types";
 import { LIMITS } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { SlotDot } from "./column";
+import { SettingsModelPickerButton, settingsModelHints, useSlotModelList } from "./model-picker";
 import { useWorkspace } from "./provider";
 
 function Field({ label, htmlFor, children, hint }: { label: string; htmlFor?: string; children: React.ReactNode; hint?: string }) {
@@ -134,27 +136,41 @@ function NumberField({
   );
 }
 
-function SlotForm({ slot }: { slot: SlotConfig }) {
-  const { updateSlot, testConnection, fetchModels } = useWorkspace();
-  const [probe, setProbe] = useState<{ state: "idle" | "running" | "ok" | "fail"; message?: string }>({ state: "idle" });
-  const [models, setModels] = useState<{ state: "idle" | "running" | "fail"; ids: string[]; message?: string }>({
-    state: "idle",
-    ids: [],
-  });
-  const ids = { name: useId(), url: useId(), model: useId(), list: useId(), prompt: useId() };
+function ModelField({ slot }: { slot: SlotConfig }) {
+  const { updateSlot } = useWorkspace();
+  const list = useSlotModelList(slot);
+  const id = useId();
   const preset = getPreset(slot.presetId);
+
+  return (
+    <Field label="模型 ID" htmlFor={id}>
+      <div className="flex gap-2">
+        <Input
+          id={id}
+          value={slot.model}
+          maxLength={LIMITS.model}
+          spellCheck={false}
+          placeholder={preset?.modelPlaceholder ?? "填写或选择模型 ID"}
+          className="min-w-0 flex-1 font-mono text-xs"
+          onChange={(e) => updateSlot(slot.id, { model: e.target.value })}
+        />
+        <SettingsModelPickerButton slot={slot} list={list} />
+      </div>
+      {settingsModelHints(list)}
+    </Field>
+  );
+}
+
+function SlotForm({ slot }: { slot: SlotConfig }) {
+  const { updateSlot, testConnection } = useWorkspace();
+  const [probe, setProbe] = useState<{ state: "idle" | "running" | "ok" | "fail"; message?: string }>({ state: "idle" });
+  const ids = { name: useId(), url: useId(), prompt: useId() };
   const isCustom = slot.presetId === "custom";
 
   const runProbe = async () => {
     setProbe({ state: "running" });
     const r = await testConnection(slot.id);
     setProbe(r.ok ? { state: "ok" } : { state: "fail", message: r.message });
-  };
-
-  const pullModels = async () => {
-    setModels((m) => ({ ...m, state: "running" }));
-    const r = await fetchModels(slot.id);
-    setModels(r.ok ? { state: "idle", ids: r.ids } : { state: "fail", ids: [], message: r.message });
   };
 
   return (
@@ -231,34 +247,9 @@ function SlotForm({ slot }: { slot: SlotConfig }) {
         />
       </Field>
 
-      <Field label="模型 ID" htmlFor={ids.model}>
-        <div className="flex gap-2">
-          <Input
-            id={ids.model}
-            list={ids.list}
-            value={slot.model}
-            maxLength={LIMITS.model}
-            spellCheck={false}
-            placeholder={preset?.modelPlaceholder ?? "填写模型 ID"}
-            className="min-w-0 flex-1 font-mono text-xs"
-            onChange={(e) => updateSlot(slot.id, { model: e.target.value })}
-          />
-          {slot.kind === "openai" && (
-            <Button variant="outline" size="sm" className="h-9" disabled={models.state === "running"} onClick={pullModels}>
-              {models.state === "running" ? "拉取中" : "拉取模型列表"}
-            </Button>
-          )}
-        </div>
-        <datalist id={ids.list}>
-          {models.ids.map((m) => (
-            <option key={m} value={m} />
-          ))}
-        </datalist>
-        {models.state === "fail" && (
-          <p className="text-xs text-destructive">{models.message}。仍可手动填写模型 ID。</p>
-        )}
-        {models.ids.length > 0 && <p className="text-xs text-muted-foreground">已拉取 {models.ids.length} 个模型，可在输入框中选择。</p>}
-      </Field>
+      <KeyField slotId={slot.id} />
+
+      <ModelField slot={slot} />
 
       <div className="grid grid-cols-2 gap-3">
         <NumberField
@@ -290,8 +281,6 @@ function SlotForm({ slot }: { slot: SlotConfig }) {
           onChange={(e) => updateSlot(slot.id, { systemPrompt: e.target.value })}
         />
       </Field>
-
-      <KeyField slotId={slot.id} />
 
       <div className="flex items-center gap-3">
         <Button variant="outline" size="sm" disabled={probe.state === "running"} onClick={runProbe}>
@@ -347,21 +336,29 @@ export function SettingsSheet({
             </Field>
 
             <Accordion type="single" collapsible value={expanded} onValueChange={onExpandedChange} className="rounded-lg border bg-white">
-              {state.settings.slots.map((slot) => (
+              {state.settings.slots.map((slot) => {
+                const hasKey = Boolean(state.secrets.keys[slot.id]);
+                const title = slotTabLabel(slot, hasKey);
+                const namedByModel = hasKey && slot.model.trim() !== "";
+                return (
                 <AccordionItem key={slot.id} value={slot.id} className="px-3">
                   <div className="flex items-center gap-2">
                     <AccordionTrigger className="min-w-0 items-center py-3 hover:no-underline">
                       <span className="flex min-w-0 items-center gap-2">
                         <SlotDot slotId={slot.id} />
-                        <span className="shrink-0 text-sm font-medium">{slot.displayName}</span>
-                        <span className="min-w-0 truncate font-mono text-xs font-normal text-muted-foreground">
-                          {slot.model || "未填写模型"}
+                        <span className={cn("truncate text-sm font-medium", namedByModel ? "font-mono" : "shrink-0")}>
+                          {title}
                         </span>
+                        {!namedByModel && (
+                          <span className="min-w-0 truncate font-mono text-xs font-normal text-muted-foreground">
+                            {slot.model || "未填写模型"}
+                          </span>
+                        )}
                       </span>
                     </AccordionTrigger>
                     <Switch
                       checked={slot.enabled}
-                      aria-label={`启用${slot.displayName}`}
+                      aria-label={`启用${title}`}
                       onCheckedChange={(v) => updateSlot(slot.id, { enabled: v })}
                     />
                   </div>
@@ -369,7 +366,8 @@ export function SettingsSheet({
                     <SlotForm slot={slot} />
                   </AccordionContent>
                 </AccordionItem>
-              ))}
+                );
+              })}
             </Accordion>
 
             <Separator />

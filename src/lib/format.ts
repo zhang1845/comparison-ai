@@ -82,7 +82,9 @@ export function sessionToMarkdown(session: Session, now: number): string {
       if (meta) lines.push(meta);
       if (t.content.trim()) lines.push("", t.content.trim());
     }
-    if (round.winnerSlotId) {
+    if (round.vote === "both") lines.push("", "人工选择：都好");
+    else if (round.vote === "neither") lines.push("", "人工选择：都不好");
+    else if (round.winnerSlotId) {
       const w = round.turns.find((t) => t.slotId === round.winnerSlotId);
       if (w) lines.push("", `人工选择：${w.displayName}`);
     }

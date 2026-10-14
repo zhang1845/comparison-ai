@@ -5,10 +5,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { slotTabLabel } from "@/lib/presets";
 import type { SlotId } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ColumnsGrid, SlotColumn } from "./column";
 import { Composer } from "./composer";
+import { HomeLanding } from "./home-landing";
 import { DB_UNAVAILABLE_TEXT, WorkspaceProvider, useWorkspace } from "./provider";
 import { SessionRail } from "./session-rail";
 import { SettingsSheet } from "./settings-sheet";
@@ -22,14 +24,14 @@ function Skeleton({ layout }: { layout: Layout }) {
     <div
       aria-hidden
       className={cn(
-        "grid h-full gap-2 p-3",
+        "grid h-full gap-5 px-6 py-5",
         layout === "narrow" ? "grid-cols-1" : "grid-cols-[repeat(5,minmax(0,1fr))]",
       )}
     >
       {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="rounded-lg border bg-white">
-          <div className="h-11 border-b" />
-          <div className="space-y-2 p-3">
+        <div key={i} className="overflow-hidden rounded-2xl border bg-white">
+          <div className="h-10" />
+          <div className="m-2 mt-0 space-y-2 rounded-xl bg-[#f4f2ee] p-3">
             <div className="h-3 w-2/3 rounded bg-muted" />
             <div className="h-3 w-1/2 rounded bg-muted" />
           </div>
@@ -52,28 +54,36 @@ function NarrowView() {
           type="single"
           variant="outline"
           size="sm"
-          aria-label="席位切换"
+          aria-label="模型切换"
           value={picked}
           onValueChange={(v) => v && setPicked(v as "all" | SlotId)}
         >
           <ToggleGroupItem value="all" className="px-2.5 text-xs">
             全部
           </ToggleGroupItem>
-          {slots.map((s) => (
-            <ToggleGroupItem key={s.id} value={s.id} className="px-2.5 text-xs whitespace-nowrap">
-              {s.displayName}
-            </ToggleGroupItem>
-          ))}
+          {slots.map((s) => {
+            const label = slotTabLabel(s, Boolean(state.secrets.keys[s.id]));
+            return (
+              <ToggleGroupItem
+                key={s.id}
+                value={s.id}
+                title={label}
+                className="max-w-[9rem] truncate px-2.5 text-xs whitespace-nowrap"
+              >
+                {label}
+              </ToggleGroupItem>
+            );
+          })}
         </ToggleGroup>
       </div>
       {single ? (
         <div className="flex min-h-0 flex-1 flex-col p-3">
-          <SlotColumn slot={single} className="flex-1" />
+          <SlotColumn slot={single} canvas className="flex-1" />
         </div>
       ) : (
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
           {slots.map((s) => (
-            <SlotColumn key={s.id} slot={s} className="max-h-[70vh]" />
+            <SlotColumn key={s.id} slot={s} canvas className="max-h-[70vh]" />
           ))}
         </div>
       )}
@@ -114,17 +124,23 @@ function Shell() {
 
   const narrow = layout === "narrow";
   const noKeys = state.settings.slots.filter((s) => s.enabled).every((s) => !state.secrets.keys[s.id]);
+  const hasRounds = (current?.rounds.length ?? 0) > 0;
 
   return (
     <WorkspaceUiContext.Provider value={ui}>
-      <div className="flex h-dvh overflow-hidden">
-        {layout === "wide" && <SessionRail className="w-[240px] shrink-0 border-r" />}
+      <div className="flex h-dvh overflow-hidden bg-background">
+        {layout === "wide" && <SessionRail className="w-[240px] shrink-0 border-r border-[#eeeae3] bg-[#faf9f6]" />}
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <Topbar layout={layout} onOpenRail={() => setRailOpen(true)} onOpenSettings={() => openSettings()} />
+          <Topbar
+            layout={layout}
+            home={!hasRounds}
+            onOpenRail={() => setRailOpen(true)}
+            onOpenSettings={() => openSettings()}
+          />
 
-          {state.settings.demo && (
-            <div className="flex shrink-0 items-center gap-3 border-b bg-[#f1ede6] px-3 py-1.5 text-xs">
+          {hasRounds && state.settings.demo && (
+            <div className="mx-3 flex shrink-0 items-center gap-3 rounded-lg bg-[#f1ede6] px-3 py-1.5 text-xs">
               <span className="font-medium">正在使用演示回答</span>
               <span className="hidden text-muted-foreground sm:inline">回答在浏览器本地生成，不访问任何厂商。</span>
               <Button
@@ -137,7 +153,7 @@ function Shell() {
               </Button>
             </div>
           )}
-          {narrow && !state.settings.demo && state.ready && noKeys && (
+          {hasRounds && narrow && !state.settings.demo && state.ready && noKeys && (
             <div className="flex shrink-0 items-center gap-3 border-b px-3 py-1.5 text-xs">
               <span className="text-muted-foreground">尚未配置密钥</span>
               <Button
@@ -159,6 +175,8 @@ function Shell() {
           <main className="min-h-0 flex-1">
             {!state.ready ? (
               <Skeleton layout={layout} />
+            ) : !hasRounds ? (
+              <HomeLanding inputRef={inputRef} />
             ) : narrow ? (
               <NarrowView />
             ) : state.settings.view === "timeline" ? (
@@ -168,31 +186,29 @@ function Shell() {
             )}
           </main>
 
-          <Composer inputRef={inputRef} />
+          {hasRounds && <Composer inputRef={inputRef} />}
         </div>
       </div>
 
       {layout !== "wide" && (
         <Sheet open={railOpen} onOpenChange={setRailOpen}>
-          <SheetContent side="left" className="w-[280px] gap-0 bg-rail p-0" showCloseButton={false}>
-            <SheetTitle className="sr-only">会话</SheetTitle>
-            <SheetDescription className="sr-only">最近会话</SheetDescription>
-            <SessionRail className="min-h-0 flex-1" onPicked={() => setRailOpen(false)} />
-            {narrow && (
-              <div className="border-t p-3">
-                <Button
-                  variant="outline"
-                  className="w-full bg-white"
-                  disabled={(current?.rounds.length ?? 0) === 0}
-                  onClick={exportCurrent}
-                >
-                  <DownloadIcon />
-                  导出
-                </Button>
-              </div>
-            )}
-          </SheetContent>
-        </Sheet>
+        <SheetContent side="left" className="w-[280px] gap-0 bg-rail p-0" showCloseButton={false}>
+          <SheetTitle className="sr-only">会话</SheetTitle>
+          <SheetDescription className="sr-only">最近会话</SheetDescription>
+          <SessionRail className="min-h-0 flex-1" onPicked={() => setRailOpen(false)} />
+          <div className="border-t p-3">
+            <Button
+              variant="outline"
+              className="w-full bg-white"
+              disabled={(current?.rounds.length ?? 0) === 0}
+              onClick={exportCurrent}
+            >
+              <DownloadIcon />
+              导出
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
       )}
 
       <SettingsSheet

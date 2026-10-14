@@ -20,7 +20,7 @@ import {
   saveSecrets,
   saveSettings,
 } from "@/lib/storage";
-import type { Round, SecretMap, Session, Settings, SlotConfig, SlotId, SlotTurn, Usage } from "@/lib/types";
+import type { Round, SecretMap, Session, Settings, SlotConfig, SlotId, SlotTurn, Usage, VoteChoice } from "@/lib/types";
 import { LIMITS } from "@/lib/types";
 
 const QUOTA_TEXT = "浏览器存储空间不足，这次修改没有保存。";
@@ -184,7 +184,7 @@ export interface WorkspaceApi {
   regenerate: (slotId: SlotId) => void;
   continueRound: () => void;
   editRound: (roundIndex: number, text: string) => boolean;
-  toggleWinner: (roundId: string, slotId: SlotId) => void;
+  toggleWinner: (roundId: string, choice: VoteChoice | null) => void;
   exportCurrent: () => void;
   testConnection: (slotId: SlotId) => Promise<ProbeResult>;
   fetchModels: (slotId: SlotId) => Promise<{ ok: true; ids: string[] } | { ok: false; message: string }>;
@@ -485,14 +485,27 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   );
 
   const toggleWinner = useCallback(
-    (roundId: string, slotId: SlotId) => {
+    (roundId: string, choice: VoteChoice | null) => {
       const session = currentSession();
       if (!session) return;
       commitSession({
         ...session,
-        rounds: session.rounds.map((r) =>
-          r.id === roundId ? { ...r, winnerSlotId: r.winnerSlotId === slotId ? undefined : slotId } : r,
-        ),
+        rounds: session.rounds.map((r) => {
+          if (r.id !== roundId) return r;
+          if (choice === null) return { ...r, winnerSlotId: undefined, vote: undefined };
+          if (choice === "both" || choice === "neither") {
+            return {
+              ...r,
+              winnerSlotId: undefined,
+              vote: r.vote === choice ? undefined : choice,
+            };
+          }
+          return {
+            ...r,
+            vote: undefined,
+            winnerSlotId: r.winnerSlotId === choice ? undefined : choice,
+          };
+        }),
       });
     },
     [commitSession, currentSession],

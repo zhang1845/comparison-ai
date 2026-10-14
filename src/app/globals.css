@@ -37,7 +37,7 @@
 /* 圆角：列与卡片 10px（rounded-lg），控件 8px（rounded-md） */
 :root {
   --radius: 10px;
-  --background: #f6f4ef;
+  --background: #f7f6f3;
   --foreground: #1c1915;
   --rail: #efeae2;
   --surface: #ffffff;

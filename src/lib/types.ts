@@ -67,7 +67,11 @@ export interface Round {
   userText: string;
   turns: SlotTurn[];
   winnerSlotId?: SlotId;
+  /** 两席对照时的「都好 / 都不好」；与 winnerSlotId 互斥。 */
+  vote?: "both" | "neither";
 }
+
+export type VoteChoice = SlotId | "both" | "neither";
 
 export interface Session {
   id: string;

@@ -1,20 +1,43 @@
 "use client";
 
+import { ArrowRightIcon, ChevronDownIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { continuationState } from "@/lib/context";
+import type { ChatMode } from "@/lib/types";
 import { LIMITS } from "@/lib/types";
+import { CompareVoteBar } from "./column";
+import { HeaderModelPicker } from "./model-picker";
 import { useWorkspace } from "./provider";
 
-export function Composer({ inputRef }: { inputRef: React.RefObject<HTMLTextAreaElement | null> }) {
-  const { state, current, busy, send, stopAll, continueRound } = useWorkspace();
-  const [text, setText] = useState("");
+const MODE_CHIP: Record<ChatMode, string> = {
+  parallel: "并排对照",
+  roundtable: "圆桌",
+};
 
-  const enabledCount = state.settings.slots.filter((s) => s.enabled).length;
+export function Composer({
+  inputRef,
+  variant = "docked",
+}: {
+  inputRef: React.RefObject<HTMLTextAreaElement | null>;
+  variant?: "docked" | "home";
+}) {
+  const { state, current, busy, send, stopAll, continueRound, updateSettings } = useWorkspace();
+  const [text, setText] = useState("");
+  const home = variant === "home";
+
+  const enabled = state.settings.slots.filter((s) => s.enabled);
+  const enabledCount = enabled.length;
   const noSlots = enabledCount === 0;
   const roundsFull = (current?.rounds.length ?? 0) >= LIMITS.rounds;
-  const placeholder = enabledCount === 5 ? "向五个席位提出同一个问题" : `向已启用的 ${enabledCount} 个席位发送`;
+  const placeholder = noSlots ? "至少启用一个席位" : home ? "问点什么…" : "输入同一条问题，对比各模型的回答…";
   const canSend = !busy && !noSlots && !roundsFull && text.trim() !== "" && state.ready;
 
   const lastRound = current?.rounds.at(-1);
@@ -34,47 +57,85 @@ export function Composer({ inputRef }: { inputRef: React.RefObject<HTMLTextAreaE
   };
 
   return (
-    <div className="border-t bg-background px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-      <div className="rounded-lg border bg-white focus-within:border-ring">
-        <Textarea
-          ref={inputRef}
-          value={text}
-          maxLength={LIMITS.input}
-          disabled={noSlots}
-          placeholder={noSlots ? "至少启用一个席位" : placeholder}
-          aria-label="输入问题"
-          rows={2}
-          className="max-h-48 min-h-14 resize-none border-0 shadow-none focus-visible:ring-0"
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={onKeyDown}
-        />
-        <div className="flex flex-wrap items-center gap-2 px-2 pb-2">
-          <p className="min-w-0 flex-1 text-xs text-muted-foreground">
-            {noSlots
-              ? "至少启用一个席位"
-              : roundsFull
-                ? "单个对话最多 200 轮，请新建对话。"
-                : text.length >= LIMITS.input * 0.8
-                  ? `${text.length} / ${LIMITS.input}`
-                  : "Enter 发送，Shift+Enter 换行"}
-          </p>
-          {showContinue && (
-            <>
-              <span className="text-xs text-muted-foreground">还可续谈 {cont.remaining} 次</span>
-              <Button size="sm" variant="outline" onClick={continueRound}>
-                续谈
+    <div className={home ? "" : "px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]"}>
+      <div className={home ? "w-full space-y-3" : "mx-auto w-full max-w-3xl space-y-3"}>
+        {!home && <CompareVoteBar />}
+        <div className="rounded-2xl border border-[#e8e4dc] bg-white shadow-[0_8px_24px_rgba(28,25,21,0.05)] focus-within:border-ring">
+          <Textarea
+            ref={inputRef}
+            value={text}
+            maxLength={LIMITS.input}
+            disabled={noSlots}
+            placeholder={placeholder}
+            aria-label="输入问题"
+            rows={home ? 3 : 2}
+            className={
+              home
+                ? "max-h-48 min-h-20 resize-none border-0 px-4 pt-3.5 text-sm shadow-none placeholder:text-muted-foreground/80 focus-visible:ring-0"
+                : "max-h-48 min-h-14 resize-none border-0 px-4 pt-3.5 text-sm shadow-none placeholder:text-muted-foreground/80 focus-visible:ring-0"
+            }
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={onKeyDown}
+          />
+          <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    className="h-auto rounded-full border border-[#ece8e0] bg-[#faf9f6] px-2.5 py-1 text-xs font-normal text-muted-foreground"
+                  >
+                    {MODE_CHIP[state.settings.mode]}
+                    <ChevronDownIcon className="size-3 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onSelect={() => updateSettings((s) => ({ ...s, mode: "parallel" }))}>
+                    并排对照
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => updateSettings((s) => ({ ...s, mode: "roundtable" }))}>
+                    圆桌
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {enabled.map((s) => (
+                <HeaderModelPicker key={s.id} slot={s} variant="chip" />
+              ))}
+            </div>
+            {noSlots ? (
+              <p className="text-xs text-muted-foreground">至少启用一个席位</p>
+            ) : roundsFull ? (
+              <p className="text-xs text-muted-foreground">单个对话最多 200 轮，请新建对话。</p>
+            ) : text.length >= LIMITS.input * 0.8 ? (
+              <p className="text-xs text-muted-foreground">
+                {text.length} / {LIMITS.input}
+              </p>
+            ) : null}
+            {showContinue && (
+              <>
+                <span className="text-xs text-muted-foreground">还可续谈 {cont.remaining} 次</span>
+                <Button size="sm" variant="outline" onClick={continueRound}>
+                  续谈
+                </Button>
+              </>
+            )}
+            {busy ? (
+              <Button size="sm" variant="destructive" onClick={stopAll}>
+                停止
               </Button>
-            </>
-          )}
-          {busy ? (
-            <Button size="sm" variant="destructive" onClick={stopAll}>
-              停止
-            </Button>
-          ) : (
-            <Button size="sm" disabled={!canSend} onClick={submit}>
-              发送
-            </Button>
-          )}
+            ) : (
+              <Button
+                size="icon-sm"
+                disabled={!canSend}
+                onClick={submit}
+                aria-label="发送"
+                className="rounded-full"
+              >
+                <ArrowRightIcon />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>

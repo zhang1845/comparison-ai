@@ -141,7 +141,10 @@ export function SessionRail({ onPicked, className }: { onPicked?: () => void; cl
 
   return (
     <div className={cn("flex h-full flex-col bg-rail", className)}>
-      <div className="p-3">
+      <div className="px-4 pt-4 pb-2">
+        <p className="text-sm font-semibold tracking-tight">多模型工作台</p>
+      </div>
+      <div className="px-3 pb-3">
         <Button
           variant="outline"
           className="w-full justify-start bg-white"
